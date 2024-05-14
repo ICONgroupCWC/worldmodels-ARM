@@ -31,6 +31,10 @@ Data generation is handled through the `data/generation_script.py` script, e.g.
 ```bash
 python data/generation_script.py --rollouts 1000 --rootdir datasets/carracing --threads 8
 ```
+## Athmajan
+``` bash
+python -m  data.generation_script --rollouts 1000 --rootdir datasets/carracing --threads 10
+```
 
 Rollouts are generated using a *brownian* random policy, instead of the *white noise* random `action_space.sample()` policy from gym, providing more consistent rollouts.
 
@@ -39,6 +43,11 @@ The VAE is trained using the `trainvae.py` file, e.g.
 ```bash
 python trainvae.py --logdir exp_dir
 ```
+## Athmajan
+``` bash
+python -m trainvae
+```
+
 
 ### 3. Training the MDN-RNN
 The MDN-RNN is trained using the `trainmdrnn.py` file, e.g.
