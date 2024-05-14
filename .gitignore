@@ -1,0 +1,5 @@
+# Ignore .npz files
+*.npz
+
+# Ignore .mp4 files
+*.mp4
