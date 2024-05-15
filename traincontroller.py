@@ -36,14 +36,17 @@ args = parser.parse_args()
 
 # Max number of workers. M
 
+
 # multiprocessing variables
 n_samples = args.n_samples
 pop_size = args.pop_size
 num_workers = min(args.max_workers, n_samples * pop_size)
+#num_workers = 10
 time_limit = 1000
 
 # create tmp dir if non existent and clean it if existent
-tmp_dir = join(args.logdir, 'tmp')
+tmp_dir = "/Users/athmajanvivekananthan/WCE/JEPA - MARL/World Models/world-models/worldmodels/logFiles/tmp"
+#tmp_dir = join(args.logdir, 'tmp')
 if not exists(tmp_dir):
     mkdir(tmp_dir)
 else:
@@ -51,7 +54,8 @@ else:
         unlink(join(tmp_dir, fname))
 
 # create ctrl dir if non exitent
-ctrl_dir = join(args.logdir, 'ctrl')
+ctrl_dir = "/Users/athmajanvivekananthan/WCE/JEPA - MARL/World Models/world-models/worldmodels/logFiles/ctrl"
+#ctrl_dir = join(args.logdir, 'ctrl')
 if not exists(ctrl_dir):
     mkdir(ctrl_dir)
 
@@ -100,9 +104,11 @@ def slave_routine(p_queue, r_queue, e_queue, p_index):
                 r_queue.put((s_id, r_gen.rollout(params)))
 
 
+
 ################################################################################
 #                Define queues and start workers                               #
 ################################################################################
+
 p_queue = Queue()
 r_queue = Queue()
 e_queue = Queue()
@@ -161,54 +167,55 @@ es = cma.CMAEvolutionStrategy(flatten_parameters(parameters), 0.1,
 
 epoch = 0
 log_step = 3
-while not es.stop():
-    if cur_best is not None and - cur_best > args.target_return:
-        print("Already better than target, breaking...")
-        break
-
-    r_list = [0] * pop_size  # result list
-    solutions = es.ask()
-
-    # push parameters to queue
-    for s_id, s in enumerate(solutions):
-        for _ in range(n_samples):
-            p_queue.put((s_id, s))
-
-    # retrieve results
-    if args.display:
-        pbar = tqdm(total=pop_size * n_samples)
-    for _ in range(pop_size * n_samples):
-        while r_queue.empty():
-            sleep(.1)
-        r_s_id, r = r_queue.get()
-        r_list[r_s_id] += r / n_samples
-        if args.display:
-            pbar.update(1)
-    if args.display:
-        pbar.close()
-
-    es.tell(solutions, r_list)
-    es.disp()
-
-    # evaluation and saving
-    if epoch % log_step == log_step - 1:
-        best_params, best, std_best = evaluate(solutions, r_list)
-        print("Current evaluation: {}".format(best))
-        if not cur_best or cur_best > best:
-            cur_best = best
-            print("Saving new best with value {}+-{}...".format(-cur_best, std_best))
-            load_parameters(best_params, controller)
-            torch.save(
-                {'epoch': epoch,
-                 'reward': - cur_best,
-                 'state_dict': controller.state_dict()},
-                join(ctrl_dir, 'best.tar'))
-        if - best > args.target_return:
-            print("Terminating controller training with value {}...".format(best))
+if __name__ == '__main__':
+    while not es.stop():
+        if cur_best is not None and - cur_best > args.target_return:
+            print("Already better than target, breaking...")
             break
 
+        r_list = [0] * pop_size  # result list
+        solutions = es.ask()
 
-    epoch += 1
+        # push parameters to queue
+        for s_id, s in enumerate(solutions):
+            for _ in range(n_samples):
+                p_queue.put((s_id, s))
 
-es.result_pretty()
-e_queue.put('EOP')
+        # retrieve results
+        if args.display:
+            pbar = tqdm(total=pop_size * n_samples)
+        for _ in range(pop_size * n_samples):
+            while r_queue.empty():
+                sleep(.1)
+            r_s_id, r = r_queue.get()
+            r_list[r_s_id] += r / n_samples
+            if args.display:
+                pbar.update(1)
+        if args.display:
+            pbar.close()
+
+        es.tell(solutions, r_list)
+        es.disp()
+
+        # evaluation and saving
+        if epoch % log_step == log_step - 1:
+            best_params, best, std_best = evaluate(solutions, r_list)
+            print("Current evaluation: {}".format(best))
+            if not cur_best or cur_best > best:
+                cur_best = best
+                print("Saving new best with value {}+-{}...".format(-cur_best, std_best))
+                load_parameters(best_params, controller)
+                torch.save(
+                    {'epoch': epoch,
+                    'reward': - cur_best,
+                    'state_dict': controller.state_dict()},
+                    join(ctrl_dir, 'best.tar'))
+            if - best > args.target_return:
+                print("Terminating controller training with value {}...".format(best))
+                break
+
+
+        epoch += 1
+
+    es.result_pretty()
+    e_queue.put('EOP')

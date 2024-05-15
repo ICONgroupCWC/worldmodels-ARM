@@ -65,7 +65,8 @@ train_loader = torch.utils.data.DataLoader(
 test_loader = torch.utils.data.DataLoader(
     dataset_test, batch_size=args.batch_size, shuffle=True, num_workers=0)
 
-
+# 3 is for RGB channel
+# LSize stands for the latent space size
 model = VAE(3, LSIZE).to(device)
 optimizer = optim.Adam(model.parameters())
 scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=5)

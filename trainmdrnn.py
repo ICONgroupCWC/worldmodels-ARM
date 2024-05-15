@@ -33,21 +33,31 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # constants
 BSIZE = 16
 SEQ_LEN = 32
-epochs = 30
+epochs = 1
+
+
 
 # Loading VAE
-vae_file = join(args.logdir, 'vae', 'best.tar')
+#vae_file = join(args.logdir, 'vae', 'best.tar')
+vae_file = "/Users/athmajanvivekananthan/WCE/JEPA - MARL/World Models/world-models/worldmodels/logFiles/vae/best.tar"
+
+
 assert exists(vae_file), "No trained VAE in the logdir..."
 state = torch.load(vae_file)
+
 print("Loading VAE at epoch {} "
       "with test error {}".format(
           state['epoch'], state['precision']))
+
+
 
 vae = VAE(3, LSIZE).to(device)
 vae.load_state_dict(state['state_dict'])
 
 # Loading model
-rnn_dir = join(args.logdir, 'mdrnn')
+#rnn_dir = join(args.logdir, 'mdrnn')
+rnn_dir = "/Users/athmajanvivekananthan/WCE/JEPA - MARL/World Models/world-models/worldmodels/logFiles/mdrnn"
+
 rnn_file = join(rnn_dir, 'best.tar')
 
 if not exists(rnn_dir):
@@ -71,15 +81,36 @@ if exists(rnn_file) and not args.noreload:
     earlystopping.load_state_dict(state['earlystopping'])
 
 
+## Data Loading below ####################################################################
+workerN = 8 # num_worker for DataLoader
+
+
 # Data Loading
 transform = transforms.Lambda(
     lambda x: np.transpose(x, (0, 3, 1, 2)) / 255)
+
+def transform_fn(x):
+    return np.transpose(x, (0, 3, 1, 2)) / 255
+
+# Data Loading
+transform = transforms.Lambda(transform_fn)
+
+# Use transform in DataLoader
 train_loader = DataLoader(
     RolloutSequenceDataset('datasets/carracing', SEQ_LEN, transform, buffer_size=30),
-    batch_size=BSIZE, num_workers=8, shuffle=True)
+    batch_size=BSIZE, num_workers=workerN, shuffle=True)
 test_loader = DataLoader(
     RolloutSequenceDataset('datasets/carracing', SEQ_LEN, transform, train=False, buffer_size=10),
-    batch_size=BSIZE, num_workers=8)
+    batch_size=BSIZE, num_workers=workerN)
+
+
+# train_loader = DataLoader(
+#     RolloutSequenceDataset('datasets/carracing', SEQ_LEN, transform, buffer_size=30),
+#     batch_size=BSIZE, num_workers=workerN, shuffle=True)
+# test_loader = DataLoader(
+#     RolloutSequenceDataset('datasets/carracing', SEQ_LEN, transform, train=False, buffer_size=10),
+#     batch_size=BSIZE, num_workers=workerN)
+
 
 def to_latent(obs, next_obs):
     """ Transform observations to latent space.
@@ -105,6 +136,8 @@ def to_latent(obs, next_obs):
             for x_mu, x_logsigma in
             [(obs_mu, obs_logsigma), (next_obs_mu, next_obs_logsigma)]]
     return latent_obs, latent_next_obs
+
+
 
 def get_loss(latent_obs, action, reward, terminal,
              latent_next_obs, include_reward: bool):
@@ -197,26 +230,30 @@ def data_pass(epoch, train, include_reward): # pylint: disable=too-many-locals
 train = partial(data_pass, train=True, include_reward=args.include_reward)
 test = partial(data_pass, train=False, include_reward=args.include_reward)
 
+
+
 cur_best = None
-for e in range(epochs):
-    train(e)
-    test_loss = test(e)
-    scheduler.step(test_loss)
-    earlystopping.step(test_loss)
+if __name__ == '__main__':
 
-    is_best = not cur_best or test_loss < cur_best
-    if is_best:
-        cur_best = test_loss
-    checkpoint_fname = join(rnn_dir, 'checkpoint.tar')
-    save_checkpoint({
-        "state_dict": mdrnn.state_dict(),
-        "optimizer": optimizer.state_dict(),
-        'scheduler': scheduler.state_dict(),
-        'earlystopping': earlystopping.state_dict(),
-        "precision": test_loss,
-        "epoch": e}, is_best, checkpoint_fname,
-                    rnn_file)
+    for e in range(epochs):
+        train(e)
+        test_loss = test(e)
+        scheduler.step(test_loss)
+        earlystopping.step(test_loss)
 
-    if earlystopping.stop:
-        print("End of Training because of early stopping at epoch {}".format(e))
-        break
+        is_best = not cur_best or test_loss < cur_best
+        if is_best:
+            cur_best = test_loss
+        checkpoint_fname = join(rnn_dir, 'checkpoint.tar')
+        save_checkpoint({
+            "state_dict": mdrnn.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            'scheduler': scheduler.state_dict(),
+            'earlystopping': earlystopping.state_dict(),
+            "precision": test_loss,
+            "epoch": e}, is_best, checkpoint_fname,
+                        rnn_file)
+
+        if earlystopping.stop:
+            print("End of Training because of early stopping at epoch {}".format(e))
+            break
