@@ -1,4 +1,4 @@
-# Pytorch implementation of the "WorldModels"
+# Pytorch implementation of the "WorldModels" for ARM processors
 
 Original Implemention from : https://github.com/ctallec/world-models
 Paper: Ha and Schmidhuber, "World Models", 2018. https://doi.org/10.5281/zenodo.1207631. For a quick summary of the paper and some additional experiments, visit the [github page](https://ctallec.github.io/world-models/).
